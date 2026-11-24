@@ -45,6 +45,7 @@ const PRODUCTS = [
   { id: 'starter-kit', name: 'Starter KİT', price: 1200, icon: 'images/teklifsimge3.png', img: 'images/icerik2.png' },
   { id: 'p4-neth-kit', name: 'P4 Neth KİT', price: 2500, icon: 'images/teklifsimge4.png', img: 'images/icerik2.png' }
 ];
+const ICON = Object.fromEntries(PRODUCTS.map(p => [p.id, p.icon]));
 
 let myPoints = 0;
 let unsubUser = null, unsubOwned = null;
@@ -66,18 +67,19 @@ function renderProducts() {
 function renderOwned(docs) {
   const wrap = document.getElementById('owned');
   if (!docs.length) {
-    wrap.innerHTML = '<p class="empty">Henüz bir satın alımın yok.</p>';
+    wrap.innerHTML = '<p class="empty">Henüz bir satın alım yok.</p>';
     return;
   }
-  wrap.innerHTML = docs.map(o => {
-    const date = o.createdAt ? o.createdAt.toDate().toLocaleDateString('tr-TR') : '';
+  wrap.innerHTML = `<div class="owned-grid">` + docs.map(o => {
     const done = o.status === 'done';
     return `
-      <div class="owned">
-        <div><strong>${o.name}</strong><br><small>${date}</small></div>
+      <div class="owned-tile ${done ? 'done' : 'wait'}">
+        <img src="${ICON[o.productId] || ''}" alt="${o.name}">
+        <strong>${o.name}</strong>
+        <small>${o.username || ''}</small>
         <span class="badge ${done ? 'done' : 'wait'}">${done ? 'Teslim edildi' : 'Bekliyor'}</span>
       </div>`;
-  }).join('');
+  }).join('') + `</div>`;
 }
 
 auth.onAuthStateChanged(user => {
@@ -87,24 +89,24 @@ auth.onAuthStateChanged(user => {
   if (!user) {
     myPoints = 0;
     document.getElementById('pts').textContent = 0;
-    renderOwned([]);
     info.textContent = 'Satın alma için giriş yapmalısın.';
-    return;
+  } else {
+    info.textContent = 'Teslim için oyun içi adını bana bildir, sonra teslim edilecek.';
+    unsubUser = db.collection('users').doc(user.uid).onSnapshot(snap => {
+      myPoints = (snap.data() || {}).points || 0;
+      document.getElementById('pts').textContent = myPoints;
+    });
   }
 
-  info.textContent = 'Teslim için oyun içi adını bana bildir, sonra teslim edilecek.';
-
-  unsubUser = db.collection('users').doc(user.uid).onSnapshot(snap => {
-    myPoints = (snap.data() || {}).points || 0;
-    document.getElementById('pts').textContent = myPoints;
-  });
-
-  unsubOwned = db.collection('purchases').where('uid', '==', user.uid)
-    .onSnapshot(snap => {
-      const docs = snap.docs.map(d => d.data());
-      docs.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
-      renderOwned(docs);
-    });
+  // Alınanlar herkese açık: giriş yapan herkes tüm satın alımları görür
+  if (user) {
+    unsubOwned = db.collection('purchases').orderBy('createdAt', 'desc')
+      .onSnapshot(snap => renderOwned(snap.docs.map(d => d.data())), err => {
+        document.getElementById('owned').innerHTML = `<p class="empty">Liste yüklenemedi: ${err.message}</p>`;
+      });
+  } else {
+    renderOwned([]);
+  }
 });
 
 async function buy(id) {
@@ -121,6 +123,7 @@ async function buy(id) {
     });
     batch.set(db.collection('purchases').doc(), {
       uid: user.uid,
+      username: user.displayName || '',
       productId: p.id,
       name: p.name,
       price: p.price,
@@ -136,6 +139,5 @@ async function buy(id) {
 
 renderProducts();
 </script>
-
 </body>
 </html>
