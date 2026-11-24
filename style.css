@@ -74,6 +74,15 @@ footer{text-align:center;color:var(--mut);padding:30px;border-top:2px solid var(
 .target img{width:100%;height:100%;object-fit:contain;pointer-events:none;display:block}
 .target:hover{transform:scale(1.08)}
 
+/* Alınanlar: yuvarlak kutucuklar */
+.owned-grid{display:flex;flex-wrap:wrap;gap:20px;justify-content:center}
+.owned-tile{width:130px;text-align:center}
+.owned-tile img{width:90px;height:90px;border-radius:50%;object-fit:cover;background:#fff;border:3px solid var(--s);box-shadow:0 6px 16px rgba(255,77,31,.2);display:block;margin:0 auto 8px;padding:6px}
+.owned-tile.wait img{opacity:.7}
+.owned-tile strong{display:block;color:var(--tx);font-size:.95rem}
+.owned-tile small{display:block;color:var(--mut);margin:2px 0 6px}
+.owned-tile .badge{font-size:.75rem}
+
 /* Market sağ üst puan */
 .pts{font-weight:700;color:var(--tx);background:#fff3ea;border:2px solid var(--s);padding:8px 14px;border-radius:12px;white-space:nowrap}
 .pts strong{color:var(--p);font-size:1.1rem}
