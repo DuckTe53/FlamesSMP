@@ -22,11 +22,11 @@
 
 <section class="container">
   <h1 class="title">Minigame</h1>
-  <p class="sub">30 saniye içinde mümkün olduğunca çok ateş topuna tıkla. Her isabet 10 puan!</p>
+  <p class="sub">Her turda 10 ateş topu gelir. Her isabet 10 puan! Günde 5 hakkın var.</p>
 
   <div class="card">
     <div class="stats">
-      Süre: <span id="time">30</span> sn &nbsp;|&nbsp; Skor: <span id="score">0</span> &nbsp;|&nbsp; Kazanılan Puan: <span id="points">0</span>
+      Kalan Hak: <span id="plays">5/5</span> &nbsp;|&nbsp; İsabet: <span id="hits">0</span>/10 &nbsp;|&nbsp; Kazanılan Puan: <span id="points">0</span>
     </div>
     <div class="game-box" id="box">
       <button class="btn" id="startBtn" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)">Başla</button>
@@ -36,58 +36,112 @@
 </section>
 
 <script>
-const DURATION = 30;
-const POINTS_PER_HIT = 10;
-let timer = null, timeLeft = DURATION, score = 0, running = false;
+const DAILY_LIMIT = 5;      // Günlük hak
+const FIREBALLS = 10;       // Tur başına ateş topu
+const POINTS_PER_HIT = 10;  // Her isabet puanı
+const FB_LIFE = 1200;       // Bir ateş topunun ekranda kalma süresi (ms)
+const SPAWN_GAP = 900;      // Ateş topları arası süre (ms)
 
 const box = document.getElementById('box');
 const startBtn = document.getElementById('startBtn');
-const timeEl = document.getElementById('time');
-const scoreEl = document.getElementById('score');
+const playsEl = document.getElementById('plays');
+const hitsEl = document.getElementById('hits');
 const pointsEl = document.getElementById('points');
 const msg = document.getElementById('msg');
 
-function spawnTarget() {
-  if (!running) return;
-  const t = document.createElement('button');
-  t.className = 'target';
-  const maxX = box.clientWidth - 60, maxY = box.clientHeight - 60;
-  t.style.left = Math.random() * maxX + 'px';
-  t.style.top = Math.random() * maxY + 'px';
-  t.onclick = () => { if (!running) return; score++; scoreEl.textContent = score; pointsEl.textContent = score * POINTS_PER_HIT; t.remove(); };
-  box.appendChild(t);
-  setTimeout(() => t.remove(), 1000);
+let running = false, spawned = 0, resolved = 0, hits = 0;
+
+// Günlük hak takibi (şimdilik tarayıcıda; Firebase bağlanınca sunucuya taşınacak)
+const todayKey = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD, yerel saat
+function getPlays() {
+  const d = JSON.parse(localStorage.getItem('flame_minigame') || 'null');
+  return (!d || d.date !== todayKey()) ? 0 : d.count;
+}
+function addPlay() {
+  localStorage.setItem('flame_minigame', JSON.stringify({ date: todayKey(), count: getPlays() + 1 }));
+}
+function refreshPlays() {
+  const left = DAILY_LIMIT - getPlays();
+  playsEl.textContent = `${left}/${DAILY_LIMIT}`;
+  return left;
 }
 
 function start() {
-  score = 0; timeLeft = DURATION; running = true;
-  scoreEl.textContent = 0; pointsEl.textContent = 0; timeEl.textContent = timeLeft;
+  if (running) return;
+  if (getPlays() >= DAILY_LIMIT) {
+    msg.textContent = 'Bugünlük 5 hakkın bitti, yarın tekrar gel!';
+    return;
+  }
+  addPlay();
+  refreshPlays();
+
+  running = true;
+  spawned = 0; resolved = 0; hits = 0;
+  hitsEl.textContent = 0; pointsEl.textContent = 0;
   msg.textContent = '';
   startBtn.style.display = 'none';
   box.querySelectorAll('.target').forEach(t => t.remove());
 
-  const spawner = setInterval(spawnTarget, 700);
-  timer = setInterval(() => {
-    timeLeft--; timeEl.textContent = timeLeft;
-    if (timeLeft <= 0) {
-      clearInterval(timer); clearInterval(spawner);
-      finish();
+  spawnLoop();
+}
+
+function spawnLoop() {
+  if (spawned >= FIREBALLS) return;
+  spawned++;
+  spawnFireball();
+  setTimeout(spawnLoop, SPAWN_GAP);
+}
+
+function spawnFireball() {
+  const t = document.createElement('button');
+  t.className = 'target';
+  const img = document.createElement('img');
+  img.src = 'images/fireball.png';
+  img.alt = '';
+  t.appendChild(img);
+
+  t.style.left = Math.random() * (box.clientWidth - 70) + 'px';
+  t.style.top = Math.random() * (box.clientHeight - 70) + 'px';
+
+  let done = false;
+  const resolve = (hit) => {
+    if (done) return;
+    done = true;
+    if (hit) {
+      hits++;
+      hitsEl.textContent = hits;
+      pointsEl.textContent = hits * POINTS_PER_HIT;
     }
-  }, 1000);
+    t.remove();
+    resolved++;
+    if (resolved === FIREBALLS) finish();
+  };
+
+  t.onclick = () => resolve(true);
+  box.appendChild(t);
+  setTimeout(() => resolve(false), FB_LIFE);
+}
+
+function addDemoPoints(amount) {
+  // TODO: Firebase Cloud Function ile puanı sunucuda doğrula ve kaydet
+  const current = Number(localStorage.getItem('flame_points') || 0);
+  localStorage.setItem('flame_points', current + amount);
 }
 
 function finish() {
   running = false;
-  const earned = score * POINTS_PER_HIT;
-  box.querySelectorAll('.target').forEach(t => t.remove());
+  const earned = hits * POINTS_PER_HIT;
+  addDemoPoints(earned);
+
+  const left = refreshPlays();
+  msg.textContent = `Tur bitti! ${hits} isabet, ${earned} puan kazandın.`;
   startBtn.style.display = 'inline-block';
-  startBtn.textContent = 'Tekrar Oyna';
-  msg.textContent = `Oyun bitti! ${earned} puan kazandın.`;
-  // TODO: Firebase Cloud Function ile skoru sunucuda doğrula ve kaydet
-  // submitScore(score);
+  startBtn.disabled = left <= 0;
+  startBtn.textContent = left > 0 ? 'Tekrar Oyna' : 'Hak Bitti';
 }
 
 startBtn.onclick = start;
+refreshPlays();
 </script>
 
 </body>
