@@ -4,7 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Market - Flame SMP</title>
+<link rel="icon" type="image/png" href="images/favicon.png">
 <link rel="stylesheet" href="style.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -21,21 +25,19 @@
 </header>
 
 <section class="container">
-
-  <!-- ALINANLAR (en üst) -->
   <h2>Alınanlar</h2>
   <div class="card" style="margin-bottom:40px">
     <div class="owned-list" id="owned">
-      <p class="empty">Henüz bir satın alımın yok.</p>
+      <p class="empty">Giriş yapınca alımların burada görünür.</p>
     </div>
   </div>
 
-  <!-- MARKET -->
   <h2>Market</h2>
-  <p class="sub">Teklifin üstüne gelince içeriğini görebilirsin.</p>
+  <p class="sub" id="info">Teklifin üstüne gelince içeriğini görebilirsin.</p>
   <div class="grid" id="products"></div>
 </section>
 
+<script src="firebase-config.js"></script>
 <script>
 const PRODUCTS = [
   { id: 'extra-kalp',  name: 'Extra Kalp',  price: 150,  icon: 'images/teklifsimge1.png', img: 'images/icerik1.png' },
@@ -44,15 +46,10 @@ const PRODUCTS = [
   { id: 'p4-neth-kit', name: 'P4 Neth KİT', price: 2500, icon: 'images/teklifsimge4.png', img: 'images/icerik2.png' }
 ];
 
-// Şimdilik tarayıcıda tutuluyor; Firebase bağlanınca Firestore'dan gelecek
-const getPoints = () => Number(localStorage.getItem('flame_points') || 0);
-const setPoints = v => localStorage.setItem('flame_points', v);
-const getOwned = () => JSON.parse(localStorage.getItem('flame_owned') || '[]');
-const setOwned = list => localStorage.setItem('flame_owned', JSON.stringify(list));
+let myPoints = 0;
+let unsubUser = null, unsubOwned = null;
 
-function renderPoints() {
-  document.getElementById('pts').textContent = getPoints();
-}
+const info = document.getElementById('info');
 
 function renderProducts() {
   document.getElementById('products').innerHTML = PRODUCTS.map(p => `
@@ -66,41 +63,78 @@ function renderProducts() {
   `).join('');
 }
 
-function renderOwned() {
-  const list = getOwned();
+function renderOwned(docs) {
   const wrap = document.getElementById('owned');
-  if (!list.length) {
+  if (!docs.length) {
     wrap.innerHTML = '<p class="empty">Henüz bir satın alımın yok.</p>';
     return;
   }
-  wrap.innerHTML = list.map(o => `
-    <div class="owned">
-      <div><strong>${o.name}</strong><br><small>${o.date}</small></div>
-      <span class="badge ${o.status === 'done' ? 'done' : 'wait'}">
-        ${o.status === 'done' ? 'Teslim edildi' : 'Bekliyor'}
-      </span>
-    </div>
-  `).join('');
+  wrap.innerHTML = docs.map(o => {
+    const date = o.createdAt ? o.createdAt.toDate().toLocaleDateString('tr-TR') : '';
+    const done = o.status === 'done';
+    return `
+      <div class="owned">
+        <div><strong>${o.name}</strong><br><small>${date}</small></div>
+        <span class="badge ${done ? 'done' : 'wait'}">${done ? 'Teslim edildi' : 'Bekliyor'}</span>
+      </div>`;
+  }).join('');
 }
 
-function buy(id) {
-  const p = PRODUCTS.find(x => x.id === id);
-  if (getPoints() < p.price) {
-    alert('Yeterli puanın yok.');
+auth.onAuthStateChanged(user => {
+  if (unsubUser) unsubUser();
+  if (unsubOwned) unsubOwned();
+
+  if (!user) {
+    myPoints = 0;
+    document.getElementById('pts').textContent = 0;
+    renderOwned([]);
+    info.textContent = 'Satın alma için giriş yapmalısın.';
     return;
   }
-  // TODO: Firebase Cloud Function "buyProduct" ile sunucuda düş ve purchases'a yaz
-  setPoints(getPoints() - p.price);
-  const owned = getOwned();
-  owned.unshift({ name: p.name, date: new Date().toLocaleDateString('tr-TR'), status: 'waiting' });
-  setOwned(owned);
-  renderPoints();
-  renderOwned();
+
+  info.textContent = 'Teslim için oyun içi adını bana bildir, sonra teslim edilecek.';
+
+  unsubUser = db.collection('users').doc(user.uid).onSnapshot(snap => {
+    myPoints = (snap.data() || {}).points || 0;
+    document.getElementById('pts').textContent = myPoints;
+  });
+
+  unsubOwned = db.collection('purchases').where('uid', '==', user.uid)
+    .onSnapshot(snap => {
+      const docs = snap.docs.map(d => d.data());
+      docs.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+      renderOwned(docs);
+    });
+});
+
+async function buy(id) {
+  const user = auth.currentUser;
+  if (!user) { alert('Satın almak için giriş yapmalısın.'); return; }
+
+  const p = PRODUCTS.find(x => x.id === id);
+  if (myPoints < p.price) { alert('Yeterli puanın yok.'); return; }
+
+  try {
+    const batch = db.batch();
+    batch.update(db.collection('users').doc(user.uid), {
+      points: firebase.firestore.FieldValue.increment(-p.price)
+    });
+    batch.set(db.collection('purchases').doc(), {
+      uid: user.uid,
+      productId: p.id,
+      name: p.name,
+      price: p.price,
+      status: 'waiting',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await batch.commit();
+    alert(`${p.name} satın alındı! Teslim için bekle.`);
+  } catch (e) {
+    alert('Satın alma başarısız: ' + e.message);
+  }
 }
 
-renderPoints();
 renderProducts();
-renderOwned();
 </script>
 
 </body>
