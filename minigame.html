@@ -4,7 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Minigame - Flame SMP</title>
+<link rel="icon" type="image/png" href="images/favicon.png">
 <link rel="stylesheet" href="style.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -26,21 +30,22 @@
 
   <div class="card">
     <div class="stats">
-      Kalan Hak: <span id="plays">5/5</span> &nbsp;|&nbsp; İsabet: <span id="hits">0</span>/10 &nbsp;|&nbsp; Kazanılan Puan: <span id="points">0</span>
+      Kalan Hak: <span id="plays">-/5</span> &nbsp;|&nbsp; İsabet: <span id="hits">0</span>/10 &nbsp;|&nbsp; Kazanılan Puan: <span id="points">0</span>
     </div>
     <div class="game-box" id="box">
-      <button class="btn" id="startBtn" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)">Başla</button>
+      <button class="btn" id="startBtn" disabled style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)">Başla</button>
     </div>
-    <p class="msg" id="msg"></p>
+    <p class="msg" id="msg">Oynamak için giriş yapmalısın.</p>
   </div>
 </section>
 
+<script src="firebase-config.js"></script>
 <script>
-const DAILY_LIMIT = 5;      // Günlük hak
-const FIREBALLS = 10;       // Tur başına ateş topu
-const POINTS_PER_HIT = 10;  // Her isabet puanı
-const FB_LIFE = 1200;       // Bir ateş topunun ekranda kalma süresi (ms)
-const SPAWN_GAP = 900;      // Ateş topları arası süre (ms)
+const DAILY_LIMIT = 5;
+const FIREBALLS = 10;
+const POINTS_PER_HIT = 10;
+const FB_LIFE = 1200;
+const SPAWN_GAP = 900;
 
 const box = document.getElementById('box');
 const startBtn = document.getElementById('startBtn');
@@ -49,39 +54,50 @@ const hitsEl = document.getElementById('hits');
 const pointsEl = document.getElementById('points');
 const msg = document.getElementById('msg');
 
+let uid = null;
+let dailyDay = 0, dailyCount = 0;   // Firestore'dan gelen son durum
 let running = false, spawned = 0, resolved = 0, hits = 0;
 
-// Günlük hak takibi (şimdilik tarayıcıda; Firebase bağlanınca sunucuya taşınacak)
-const todayKey = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD, yerel saat
-function getPlays() {
-  const d = JSON.parse(localStorage.getItem('flame_minigame') || 'null');
-  return (!d || d.date !== todayKey()) ? 0 : d.count;
-}
-function addPlay() {
-  localStorage.setItem('flame_minigame', JSON.stringify({ date: todayKey(), count: getPlays() + 1 }));
-}
-function refreshPlays() {
-  const left = DAILY_LIMIT - getPlays();
-  playsEl.textContent = `${left}/${DAILY_LIMIT}`;
-  return left;
+function playsLeft() {
+  const used = dailyDay === todayKey() ? dailyCount : 0;
+  return DAILY_LIMIT - used;
 }
 
-function start() {
-  if (running) return;
-  if (getPlays() >= DAILY_LIMIT) {
+function refreshPlays() {
+  playsEl.textContent = `${playsLeft()}/${DAILY_LIMIT}`;
+  startBtn.disabled = !uid || running || playsLeft() <= 0;
+  if (uid && playsLeft() <= 0 && !running) {
+    startBtn.textContent = 'Hak Bitti';
     msg.textContent = 'Bugünlük 5 hakkın bitti, yarın tekrar gel!';
+  } else if (uid && !running) {
+    startBtn.textContent = 'Başla';
+  }
+}
+
+auth.onAuthStateChanged(async user => {
+  if (!user) {
+    uid = null;
+    msg.textContent = 'Oynamak için giriş yapmalısın.';
+    refreshPlays();
     return;
   }
-  addPlay();
+  uid = user.uid;
+  const snap = await db.collection('users').doc(uid).get();
+  const d = snap.data() || {};
+  dailyDay = d.dailyDay || 0;
+  dailyCount = d.dailyCount || 0;
+  msg.textContent = '';
   refreshPlays();
+});
 
+function startGame() {
+  if (!uid || running || playsLeft() <= 0) return;
   running = true;
   spawned = 0; resolved = 0; hits = 0;
   hitsEl.textContent = 0; pointsEl.textContent = 0;
   msg.textContent = '';
   startBtn.style.display = 'none';
   box.querySelectorAll('.target').forEach(t => t.remove());
-
   spawnLoop();
 }
 
@@ -122,26 +138,31 @@ function spawnFireball() {
   setTimeout(() => resolve(false), FB_LIFE);
 }
 
-function addDemoPoints(amount) {
-  // TODO: Firebase Cloud Function ile puanı sunucuda doğrula ve kaydet
-  const current = Number(localStorage.getItem('flame_points') || 0);
-  localStorage.setItem('flame_points', current + amount);
-}
-
-function finish() {
+async function finish() {
   running = false;
   const earned = hits * POINTS_PER_HIT;
-  addDemoPoints(earned);
+  const t = todayKey();
+  const newCount = dailyDay === t ? dailyCount + 1 : 1;
 
-  const left = refreshPlays();
-  msg.textContent = `Tur bitti! ${hits} isabet, ${earned} puan kazandın.`;
+  try {
+    await db.collection('users').doc(uid).update({
+      points: firebase.firestore.FieldValue.increment(earned),
+      dailyDay: t,
+      dailyCount: newCount
+    });
+    dailyDay = t;
+    dailyCount = newCount;
+    msg.textContent = `Tur bitti! ${hits} isabet, ${earned} puan kazandın.`;
+  } catch (e) {
+    msg.textContent = 'Puan kaydedilemedi: ' + e.message;
+  }
+
   startBtn.style.display = 'inline-block';
-  startBtn.disabled = left <= 0;
-  startBtn.textContent = left > 0 ? 'Tekrar Oyna' : 'Hak Bitti';
+  refreshPlays();
+  if (playsLeft() > 0) startBtn.textContent = 'Tekrar Oyna';
 }
 
-startBtn.onclick = start;
-refreshPlays();
+startBtn.onclick = startGame;
 </script>
 
 </body>
