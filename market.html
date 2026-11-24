@@ -16,7 +16,7 @@
       <a href="minigame.html">Minigame</a>
       <a class="active" href="market.html">Market</a>
     </div>
-    <a class="btn" href="login.html">Giriş Yap</a>
+    <span class="pts">Puan: <strong id="pts">0</strong></span>
   </div>
 </header>
 
@@ -32,31 +32,30 @@
 
   <!-- MARKET -->
   <h2>Market</h2>
-  <p class="sub" id="balance">Bakiye: giriş yapmalısın</p>
+  <p class="sub">Teklifin üstüne gelince içeriğini görebilirsin.</p>
   <div class="grid" id="products"></div>
 </section>
 
 <script>
-/*
-  Ürünleri buradan yönetebilirsin.
-  img: hover'da gösterilecek görsel (icerik1.png / icerik2.png)
-  icon: teklif simgesi
-*/
 const PRODUCTS = [
-  { id: 'extra-kalp', name: 'Extra Kalp', price: 150,  icon: 'images/teklifsimge1.png', img: 'images/icerik1.png' },
-  { id: 'revive',     name: 'Revive',     price: 500,  icon: 'images/teklifsimge2.png', img: 'images/icerik1.png' },
-  { id: 'starter-kit',name: 'Starter KİT',price: 1200, icon: 'images/teklifsimge3.png', img: 'images/icerik2.png' },
-  { id: 'p4-neth-kit',name: 'P4 Neth KİT',price: 2500, icon: 'images/teklifsimge4.png', img: 'images/icerik2.png' }
+  { id: 'extra-kalp',  name: 'Extra Kalp',  price: 150,  icon: 'images/teklifsimge1.png', img: 'images/icerik1.png' },
+  { id: 'revive',      name: 'Revive',      price: 500,  icon: 'images/teklifsimge2.png', img: 'images/icerik1.png' },
+  { id: 'starter-kit', name: 'Starter KİT', price: 1200, icon: 'images/teklifsimge3.png', img: 'images/icerik2.png' },
+  { id: 'p4-neth-kit', name: 'P4 Neth KİT', price: 2500, icon: 'images/teklifsimge4.png', img: 'images/icerik2.png' }
 ];
 
-// Ekran örneği: Firestore'dan gelecek veriler (şimdilik örnek)
-const sampleOwned = [
-  // { name: 'Revive', date: '24.11.2026', status: 'waiting' },
-];
+// Şimdilik tarayıcıda tutuluyor; Firebase bağlanınca Firestore'dan gelecek
+const getPoints = () => Number(localStorage.getItem('flame_points') || 0);
+const setPoints = v => localStorage.setItem('flame_points', v);
+const getOwned = () => JSON.parse(localStorage.getItem('flame_owned') || '[]');
+const setOwned = list => localStorage.setItem('flame_owned', JSON.stringify(list));
+
+function renderPoints() {
+  document.getElementById('pts').textContent = getPoints();
+}
 
 function renderProducts() {
-  const wrap = document.getElementById('products');
-  wrap.innerHTML = PRODUCTS.map(p => `
+  document.getElementById('products').innerHTML = PRODUCTS.map(p => `
     <div class="card product">
       <div class="preview"><img src="${p.img}" alt="${p.name} içerik"></div>
       <img class="icon" src="${p.icon}" alt="${p.name}">
@@ -67,9 +66,13 @@ function renderProducts() {
   `).join('');
 }
 
-function renderOwned(list) {
+function renderOwned() {
+  const list = getOwned();
   const wrap = document.getElementById('owned');
-  if (!list.length) return;
+  if (!list.length) {
+    wrap.innerHTML = '<p class="empty">Henüz bir satın alımın yok.</p>';
+    return;
+  }
   wrap.innerHTML = list.map(o => `
     <div class="owned">
       <div><strong>${o.name}</strong><br><small>${o.date}</small></div>
@@ -82,13 +85,22 @@ function renderOwned(list) {
 
 function buy(id) {
   const p = PRODUCTS.find(x => x.id === id);
-  // TODO: Firebase Cloud Function "buyProduct" çağrısı yapılacak
-  // firebase.functions().httpsCallable('buyProduct')({ productId: id })
-  alert(`${p.name} satın alma isteği gönderildi (Firebase bağlanınca aktif olacak).`);
+  if (getPoints() < p.price) {
+    alert('Yeterli puanın yok.');
+    return;
+  }
+  // TODO: Firebase Cloud Function "buyProduct" ile sunucuda düş ve purchases'a yaz
+  setPoints(getPoints() - p.price);
+  const owned = getOwned();
+  owned.unshift({ name: p.name, date: new Date().toLocaleDateString('tr-TR'), status: 'waiting' });
+  setOwned(owned);
+  renderPoints();
+  renderOwned();
 }
 
+renderPoints();
 renderProducts();
-renderOwned(sampleOwned);
+renderOwned();
 </script>
 
 </body>
