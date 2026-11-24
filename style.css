@@ -68,3 +68,12 @@ h2{color:var(--p);margin-bottom:16px}
 footer{text-align:center;color:var(--mut);padding:30px;border-top:2px solid var(--br);margin-top:40px;background:#fff}
 
 @media(max-width:700px){.hero h1{font-size:2.3rem}.links a{margin:0 6px}}
+
+/* Fireball hedefleri (görselli) */
+.target{width:70px;height:70px;background:none;padding:0;box-shadow:none;animation:pop .2s}
+.target img{width:100%;height:100%;object-fit:contain;pointer-events:none;display:block}
+.target:hover{transform:scale(1.08)}
+
+/* Market sağ üst puan */
+.pts{font-weight:700;color:var(--tx);background:#fff3ea;border:2px solid var(--s);padding:8px 14px;border-radius:12px;white-space:nowrap}
+.pts strong{color:var(--p);font-size:1.1rem}
