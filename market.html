@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Market - Flame SMP</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <a class="logo" href="index.html"><img src="images/teklifsimge1.png" alt="">FLAME SMP</a>
+    <div class="links">
+      <a href="index.html">Ana Sayfa</a>
+      <a href="minigame.html">Minigame</a>
+      <a class="active" href="market.html">Market</a>
+    </div>
+    <a class="btn" href="login.html">Giriş Yap</a>
+  </div>
+</header>
+
+<section class="container">
+
+  <!-- ALINANLAR (en üst) -->
+  <h2>Alınanlar</h2>
+  <div class="card" style="margin-bottom:40px">
+    <div class="owned-list" id="owned">
+      <p class="empty">Henüz bir satın alımın yok.</p>
+    </div>
+  </div>
+
+  <!-- MARKET -->
+  <h2>Market</h2>
+  <p class="sub" id="balance">Bakiye: giriş yapmalısın</p>
+  <div class="grid" id="products"></div>
+</section>
+
+<script>
+/*
+  Ürünleri buradan yönetebilirsin.
+  img: hover'da gösterilecek görsel (icerik1.png / icerik2.png)
+  icon: teklif simgesi
+*/
+const PRODUCTS = [
+  { id: 'extra-kalp', name: 'Extra Kalp', price: 150,  icon: 'images/teklifsimge1.png', img: 'images/icerik1.png' },
+  { id: 'revive',     name: 'Revive',     price: 500,  icon: 'images/teklifsimge2.png', img: 'images/icerik1.png' },
+  { id: 'starter-kit',name: 'Starter KİT',price: 1200, icon: 'images/teklifsimge3.png', img: 'images/icerik2.png' },
+  { id: 'p4-neth-kit',name: 'P4 Neth KİT',price: 2500, icon: 'images/teklifsimge4.png', img: 'images/icerik2.png' }
+];
+
+// Ekran örneği: Firestore'dan gelecek veriler (şimdilik örnek)
+const sampleOwned = [
+  // { name: 'Revive', date: '24.11.2026', status: 'waiting' },
+];
+
+function renderProducts() {
+  const wrap = document.getElementById('products');
+  wrap.innerHTML = PRODUCTS.map(p => `
+    <div class="card product">
+      <div class="preview"><img src="${p.img}" alt="${p.name} içerik"></div>
+      <img class="icon" src="${p.icon}" alt="${p.name}">
+      <h3>${p.name}</h3>
+      <div class="price">${p.price} Puan</div>
+      <button class="btn" onclick="buy('${p.id}')">Satın Al</button>
+    </div>
+  `).join('');
+}
+
+function renderOwned(list) {
+  const wrap = document.getElementById('owned');
+  if (!list.length) return;
+  wrap.innerHTML = list.map(o => `
+    <div class="owned">
+      <div><strong>${o.name}</strong><br><small>${o.date}</small></div>
+      <span class="badge ${o.status === 'done' ? 'done' : 'wait'}">
+        ${o.status === 'done' ? 'Teslim edildi' : 'Bekliyor'}
+      </span>
+    </div>
+  `).join('');
+}
+
+function buy(id) {
+  const p = PRODUCTS.find(x => x.id === id);
+  // TODO: Firebase Cloud Function "buyProduct" çağrısı yapılacak
+  // firebase.functions().httpsCallable('buyProduct')({ productId: id })
+  alert(`${p.name} satın alma isteği gönderildi (Firebase bağlanınca aktif olacak).`);
+}
+
+renderProducts();
+renderOwned(sampleOwned);
+</script>
+
+</body>
+</html>

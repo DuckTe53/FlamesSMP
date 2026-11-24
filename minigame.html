@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Minigame - Flame SMP</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <a class="logo" href="index.html"><img src="images/teklifsimge1.png" alt="">FLAME SMP</a>
+    <div class="links">
+      <a href="index.html">Ana Sayfa</a>
+      <a class="active" href="minigame.html">Minigame</a>
+      <a href="market.html">Market</a>
+    </div>
+    <a class="btn" href="login.html">Giriş Yap</a>
+  </div>
+</header>
+
+<section class="container">
+  <h1 class="title">Minigame</h1>
+  <p class="sub">30 saniye içinde mümkün olduğunca çok ateş topuna tıkla. Her isabet 10 puan!</p>
+
+  <div class="card">
+    <div class="stats">
+      Süre: <span id="time">30</span> sn &nbsp;|&nbsp; Skor: <span id="score">0</span> &nbsp;|&nbsp; Kazanılan Puan: <span id="points">0</span>
+    </div>
+    <div class="game-box" id="box">
+      <button class="btn" id="startBtn" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)">Başla</button>
+    </div>
+    <p class="msg" id="msg"></p>
+  </div>
+</section>
+
+<script>
+const DURATION = 30;
+const POINTS_PER_HIT = 10;
+let timer = null, timeLeft = DURATION, score = 0, running = false;
+
+const box = document.getElementById('box');
+const startBtn = document.getElementById('startBtn');
+const timeEl = document.getElementById('time');
+const scoreEl = document.getElementById('score');
+const pointsEl = document.getElementById('points');
+const msg = document.getElementById('msg');
+
+function spawnTarget() {
+  if (!running) return;
+  const t = document.createElement('button');
+  t.className = 'target';
+  const maxX = box.clientWidth - 60, maxY = box.clientHeight - 60;
+  t.style.left = Math.random() * maxX + 'px';
+  t.style.top = Math.random() * maxY + 'px';
+  t.onclick = () => { if (!running) return; score++; scoreEl.textContent = score; pointsEl.textContent = score * POINTS_PER_HIT; t.remove(); };
+  box.appendChild(t);
+  setTimeout(() => t.remove(), 1000);
+}
+
+function start() {
+  score = 0; timeLeft = DURATION; running = true;
+  scoreEl.textContent = 0; pointsEl.textContent = 0; timeEl.textContent = timeLeft;
+  msg.textContent = '';
+  startBtn.style.display = 'none';
+  box.querySelectorAll('.target').forEach(t => t.remove());
+
+  const spawner = setInterval(spawnTarget, 700);
+  timer = setInterval(() => {
+    timeLeft--; timeEl.textContent = timeLeft;
+    if (timeLeft <= 0) {
+      clearInterval(timer); clearInterval(spawner);
+      finish();
+    }
+  }, 1000);
+}
+
+function finish() {
+  running = false;
+  const earned = score * POINTS_PER_HIT;
+  box.querySelectorAll('.target').forEach(t => t.remove());
+  startBtn.style.display = 'inline-block';
+  startBtn.textContent = 'Tekrar Oyna';
+  msg.textContent = `Oyun bitti! ${earned} puan kazandın.`;
+  // TODO: Firebase Cloud Function ile skoru sunucuda doğrula ve kaydet
+  // submitScore(score);
+}
+
+startBtn.onclick = start;
+</script>
+
+</body>
+</html>

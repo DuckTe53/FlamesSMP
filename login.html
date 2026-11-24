@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Giriş - Flame SMP</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <a class="logo" href="index.html"><img src="images/teklifsimge1.png" alt="">FLAME SMP</a>
+    <div class="links">
+      <a href="index.html">Ana Sayfa</a>
+      <a href="minigame.html">Minigame</a>
+      <a href="market.html">Market</a>
+    </div>
+    <span></span>
+  </div>
+</header>
+
+<section class="container">
+  <div class="card login-box">
+    <h1 class="title">Giriş Yap</h1>
+    <p class="sub">Puanlarını takip etmek için giriş yap.</p>
+    <button class="btn" id="googleBtn">Google ile Giriş Yap</button>
+    <p class="msg" id="msg"></p>
+  </div>
+</section>
+
+<script>
+// Firebase Console > Proje Ayarları > Uygulama ekle'den aldığın config'i buraya yapıştır
+const firebaseConfig = {
+  apiKey: "BURAYA_API_KEY",
+  authDomain: "BURAYA_PROJE.firebaseapp.com",
+  projectId: "BURAYA_PROJE",
+  appId: "BURAYA_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+
+document.getElementById('googleBtn').onclick = async () => {
+  const msg = document.getElementById('msg');
+  try {
+    const result = await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+    msg.textContent = `Hoş geldin, ${result.user.displayName}!`;
+    // TODO: Firestore'da users/{uid} kaydı oluştur (puan = 0, Minecraft adı)
+  } catch (e) {
+    msg.textContent = 'Giriş başarısız: ' + e.message;
+  }
+};
+</script>
+
+</body>
+</html>

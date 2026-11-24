@@ -1,0 +1,70 @@
+:root{
+  --p:#ff4d1f; --s:#ff9f1c; --bg:#fff7f2; --tx:#2b1d17; --mut:#7a5c50; --br:#ffd9c7;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--tx);line-height:1.5}
+a{color:inherit}
+
+header{position:sticky;top:0;background:#fff;border-bottom:2px solid var(--br);z-index:50}
+.nav{max-width:1200px;margin:auto;display:flex;align-items:center;justify-content:space-between;padding:12px 20px;gap:16px;flex-wrap:wrap}
+.logo{font-weight:800;font-size:1.4rem;color:var(--p);text-decoration:none;display:flex;align-items:center;gap:8px}
+.logo img{height:36px}
+.links a{color:var(--tx);text-decoration:none;font-weight:600;margin:0 10px}
+.links a:hover,.links a.active{color:var(--p)}
+
+.btn{display:inline-block;background:linear-gradient(135deg,var(--p),var(--s));color:#fff;padding:10px 20px;border-radius:10px;text-decoration:none;font-weight:700;border:none;cursor:pointer;font-size:1rem}
+.btn:hover{filter:brightness(1.08)}
+.btn.ghost{background:#fff;color:var(--p);border:2px solid var(--p)}
+
+.container{max-width:1100px;margin:auto;padding:40px 20px}
+.card{background:#fff;border:2px solid var(--br);border-radius:16px;padding:24px;box-shadow:0 4px 12px rgba(255,77,31,.08)}
+h1.title{color:var(--p);font-size:2.4rem;margin-bottom:8px}
+h2{color:var(--p);margin-bottom:16px}
+.sub{color:var(--mut);margin-bottom:24px}
+
+/* Ana sayfa */
+.hero{max-width:1200px;margin:auto;padding:60px 20px;display:flex;gap:40px;align-items:center;flex-wrap:wrap}
+.hero-text{flex:1;min-width:280px}
+.hero h1{font-size:3.2rem;color:var(--p)}
+.hero p{margin-top:12px;color:var(--mut);font-size:1.1rem}
+.ip{display:inline-block;margin-top:20px;background:#fff;border:2px dashed var(--s);padding:12px 18px;border-radius:12px;font-weight:700;color:var(--p);cursor:pointer;font-family:monospace;font-size:1.1rem}
+.ip:hover{background:#fff3ea}
+.hero img.main{width:380px;max-width:100%;border-radius:20px;box-shadow:0 10px 30px rgba(255,77,31,.25)}
+
+.feature-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;margin-top:20px}
+.feature h3{color:var(--p);margin-bottom:8px}
+
+/* Market */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:24px}
+.product{position:relative;text-align:center;transition:transform .2s}
+.product:hover{transform:translateY(-4px)}
+.product .icon{width:90px;height:90px;object-fit:contain;margin:0 auto 10px;display:block}
+.product h3{color:var(--tx);margin-bottom:6px}
+.price{color:var(--p);font-weight:800;font-size:1.2rem;margin-bottom:12px}
+
+.preview{position:absolute;left:50%;bottom:100%;transform:translateX(-50%) translateY(8px);width:300px;background:#fff;border:2px solid var(--s);border-radius:14px;padding:8px;box-shadow:0 10px 25px rgba(0,0,0,.15);opacity:0;pointer-events:none;transition:.2s;z-index:20}
+.product:hover .preview{opacity:1;transform:translateX(-50%) translateY(0)}
+.preview img{width:100%;border-radius:10px;display:block}
+
+.owned-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.owned{display:flex;justify-content:space-between;align-items:center;padding:14px;border:2px solid var(--br);border-radius:12px;background:#fffaf6}
+.badge{padding:4px 10px;border-radius:20px;font-size:.85rem;font-weight:700}
+.badge.wait{background:#fff0c2;color:#9a6700}
+.badge.done{background:#d7f7df;color:#1d7a3a}
+.empty{color:var(--mut);padding:10px}
+
+/* Minigame */
+.game-box{position:relative;height:380px;background:linear-gradient(180deg,#fff,#ffe9dc);border:2px dashed var(--s);border-radius:16px;overflow:hidden;user-select:none}
+.target{position:absolute;width:60px;height:60px;border-radius:50%;background:radial-gradient(circle,#fff 0 20%,var(--p) 21% 100%);border:none;cursor:pointer;box-shadow:0 4px 12px rgba(255,77,31,.4);animation:pop .2s}
+@keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
+.stats{display:flex;gap:20px;margin:16px 0;font-weight:700;font-size:1.1rem}
+.stats span{color:var(--p)}
+
+/* Login */
+.login-box{max-width:420px;margin:60px auto;text-align:center}
+.login-box .btn{width:100%;margin-top:12px}
+.msg{margin-top:14px;color:var(--mut)}
+
+footer{text-align:center;color:var(--mut);padding:30px;border-top:2px solid var(--br);margin-top:40px;background:#fff}
+
+@media(max-width:700px){.hero h1{font-size:2.3rem}.links a{margin:0 6px}}
