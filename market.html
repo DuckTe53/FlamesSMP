@@ -3,12 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Market - Flame SMP</title>
+<title>Giriş - Flame SMP</title>
 <link rel="icon" type="image/png" href="images/favicon.png">
 <link rel="stylesheet" href="style.css">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+  .tabs{display:flex;gap:8px;margin:16px 0 20px}
+  .tabs button{flex:1;padding:10px;border-radius:10px;border:2px solid var(--p);background:#fff;color:var(--p);font-weight:700;cursor:pointer}
+  .tabs button.on{background:linear-gradient(135deg,var(--p),var(--s));color:#fff;border-color:transparent}
+  .field{width:100%;padding:12px;margin-top:10px;border:2px solid var(--br);border-radius:10px;font-size:1rem;font-family:inherit}
+  .field:focus{outline:none;border-color:var(--s)}
+  .logout{margin-top:14px;background:#fff;color:var(--p);border:2px solid var(--p)}
+</style>
 </head>
 <body>
 
@@ -18,123 +26,111 @@
     <div class="links">
       <a href="index.html">Ana Sayfa</a>
       <a href="minigame.html">Minigame</a>
-      <a class="active" href="market.html">Market</a>
+      <a href="market.html">Market</a>
     </div>
-    <span class="pts">Puan: <strong id="pts">0</strong></span>
+    <span></span>
   </div>
 </header>
 
 <section class="container">
-  <h2>Alınanlar</h2>
-  <div class="card" style="margin-bottom:40px">
-    <div class="owned-list" id="owned">
-      <p class="empty">Giriş yapınca alımların burada görünür.</p>
-    </div>
-  </div>
+  <div class="card login-box">
+    <h1 class="title" id="title">Giriş Yap</h1>
+    <p class="sub">Oyuncu adın ve şifrenle devam et.</p>
 
-  <h2>Market</h2>
-  <p class="sub" id="info">Teklifin üstüne gelince içeriğini görebilirsin.</p>
-  <div class="grid" id="products"></div>
+    <div id="authBox">
+      <div class="tabs">
+        <button type="button" id="tabLogin" class="on">Giriş Yap</button>
+        <button type="button" id="tabRegister">Kayıt Ol</button>
+      </div>
+      <input class="field" id="username" placeholder="Oyuncu adı (3-16 karakter, harf/rakam/_)" autocomplete="username">
+      <input class="field" id="password" type="password" placeholder="Şifre (en az 6 karakter)" autocomplete="current-password">
+      <button class="btn" id="submitBtn" style="width:100%;margin-top:14px">Giriş Yap</button>
+    </div>
+
+    <div id="loggedBox" style="display:none">
+      <p id="welcome" style="font-weight:700;color:var(--p)"></p>
+      <button class="btn logout" id="logoutBtn">Çıkış Yap</button>
+    </div>
+
+    <p class="msg" id="msg"></p>
+  </div>
 </section>
 
 <script src="firebase-config.js"></script>
 <script>
-const PRODUCTS = [
-  { id: 'extra-kalp',  name: 'Extra Kalp',  price: 150,  icon: 'images/teklifsimge1.png', img: 'images/icerik1.png' },
-  { id: 'revive',      name: 'Revive',      price: 500,  icon: 'images/teklifsimge2.png', img: 'images/icerik1.png' },
-  { id: 'starter-kit', name: 'Starter KİT', price: 1200, icon: 'images/teklifsimge3.png', img: 'images/icerik2.png' },
-  { id: 'p4-neth-kit', name: 'P4 Neth KİT', price: 2500, icon: 'images/teklifsimge4.png', img: 'images/icerik2.png' }
-];
+let mode = 'login';
+const $ = id => document.getElementById(id);
 
-let myPoints = 0;
-let unsubUser = null, unsubOwned = null;
+const USER_RE = /^[a-zA-Z0-9_]{3,16}$/;
+const emailFor = name => name.toLowerCase() + '@flamesmp.local';
 
-const info = document.getElementById('info');
-
-function renderProducts() {
-  document.getElementById('products').innerHTML = PRODUCTS.map(p => `
-    <div class="card product">
-      <div class="preview"><img src="${p.img}" alt="${p.name} içerik"></div>
-      <img class="icon" src="${p.icon}" alt="${p.name}">
-      <h3>${p.name}</h3>
-      <div class="price">${p.price} Puan</div>
-      <button class="btn" onclick="buy('${p.id}')">Satın Al</button>
-    </div>
-  `).join('');
+function setMode(m) {
+  mode = m;
+  $('tabLogin').classList.toggle('on', m === 'login');
+  $('tabRegister').classList.toggle('on', m === 'register');
+  $('submitBtn').textContent = m === 'login' ? 'Giriş Yap' : 'Kayıt Ol';
+  $('title').textContent = m === 'login' ? 'Giriş Yap' : 'Kayıt Ol';
+  $('password').autocomplete = m === 'login' ? 'current-password' : 'new-password';
+  $('msg').textContent = '';
 }
+$('tabLogin').onclick = () => setMode('login');
+$('tabRegister').onclick = () => setMode('register');
 
-function renderOwned(docs) {
-  const wrap = document.getElementById('owned');
-  if (!docs.length) {
-    wrap.innerHTML = '<p class="empty">Henüz bir satın alımın yok.</p>';
-    return;
+function friendlyError(e) {
+  switch (e.code) {
+    case 'auth/email-already-in-use': return 'Bu oyuncu adı zaten alınmış.';
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found': return 'Oyuncu adı veya şifre yanlış.';
+    case 'auth/weak-password': return 'Şifre en az 6 karakter olmalı.';
+    case 'auth/too-many-requests': return 'Çok fazla deneme yaptın, biraz bekleyip tekrar dene.';
+    default: return 'Hata: ' + e.message;
   }
-  wrap.innerHTML = docs.map(o => {
-    const date = o.createdAt ? o.createdAt.toDate().toLocaleDateString('tr-TR') : '';
-    const done = o.status === 'done';
-    return `
-      <div class="owned">
-        <div><strong>${o.name}</strong><br><small>${date}</small></div>
-        <span class="badge ${done ? 'done' : 'wait'}">${done ? 'Teslim edildi' : 'Bekliyor'}</span>
-      </div>`;
-  }).join('');
 }
+
+$('submitBtn').onclick = async () => {
+  const name = $('username').value.trim();
+  const pass = $('password').value;
+  const msg = $('msg');
+
+  if (!USER_RE.test(name)) { msg.textContent = 'Oyuncu adı 3-16 karakter olmalı; sadece harf, rakam ve _ kullanabilirsin.'; return; }
+  if (pass.length < 6) { msg.textContent = 'Şifre en az 6 karakter olmalı.'; return; }
+
+  $('submitBtn').disabled = true;
+  try {
+    if (mode === 'register') {
+      const cred = await auth.createUserWithEmailAndPassword(emailFor(name), pass);
+      await cred.user.updateProfile({ displayName: name });
+      await db.collection('users').doc(cred.user.uid).set({
+        username: name,
+        points: 0,
+        dailyDay: 0,
+        dailyCount: 0
+      });
+    } else {
+      await auth.signInWithEmailAndPassword(emailFor(name), pass);
+    }
+  } catch (e) {
+    msg.textContent = friendlyError(e);
+  } finally {
+    $('submitBtn').disabled = false;
+  }
+};
+
+$('logoutBtn').onclick = () => auth.signOut();
 
 auth.onAuthStateChanged(user => {
-  if (unsubUser) unsubUser();
-  if (unsubOwned) unsubOwned();
-
-  if (!user) {
-    myPoints = 0;
-    document.getElementById('pts').textContent = 0;
-    renderOwned([]);
-    info.textContent = 'Satın alma için giriş yapmalısın.';
-    return;
+  if (user) {
+    $('authBox').style.display = 'none';
+    $('loggedBox').style.display = 'block';
+    $('title').textContent = 'Hoş geldin!';
+    $('welcome').textContent = `Giriş yapıldı: ${user.displayName || ''}`;
+  } else {
+    $('authBox').style.display = 'block';
+    $('loggedBox').style.display = 'none';
+    setMode(mode);
   }
-
-  info.textContent = 'Teslim için oyun içi adını bana bildir, sonra teslim edilecek.';
-
-  unsubUser = db.collection('users').doc(user.uid).onSnapshot(snap => {
-    myPoints = (snap.data() || {}).points || 0;
-    document.getElementById('pts').textContent = myPoints;
-  });
-
-  unsubOwned = db.collection('purchases').where('uid', '==', user.uid)
-    .onSnapshot(snap => {
-      const docs = snap.docs.map(d => d.data());
-      docs.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
-      renderOwned(docs);
-    });
 });
-
-async function buy(id) {
-  const user = auth.currentUser;
-  if (!user) { alert('Satın almak için giriş yapmalısın.'); return; }
-
-  const p = PRODUCTS.find(x => x.id === id);
-  if (myPoints < p.price) { alert('Yeterli puanın yok.'); return; }
-
-  try {
-    const batch = db.batch();
-    batch.update(db.collection('users').doc(user.uid), {
-      points: firebase.firestore.FieldValue.increment(-p.price)
-    });
-    batch.set(db.collection('purchases').doc(), {
-      uid: user.uid,
-      productId: p.id,
-      name: p.name,
-      price: p.price,
-      status: 'waiting',
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    await batch.commit();
-    alert(`${p.name} satın alındı! Teslim için bekle.`);
-  } catch (e) {
-    alert('Satın alma başarısız: ' + e.message);
-  }
-}
-
-renderProducts();
 </script>
 
 </body>
