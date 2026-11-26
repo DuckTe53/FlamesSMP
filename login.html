@@ -22,7 +22,10 @@
 
 <header>
   <div class="nav">
-    <a class="logo" href="index.html"><img src="images/teklifsimge1.png" alt="">FLAME SMP</a>
+    <div style="display:flex;align-items:center;gap:12px">
+      <a class="logo" href="index.html"><img src="images/teklifsimge1.png" alt="">FLAME SMP</a>
+      <span class="who" id="who"><span class="dot"></span><span id="whoName"></span></span>
+    </div>
     <div class="links">
       <a href="index.html">Ana Sayfa</a>
       <a href="minigame.html">Minigame</a>
@@ -78,12 +81,13 @@ $('tabRegister').onclick = () => setMode('register');
 
 function friendlyError(e) {
   switch (e.code) {
-    case 'auth/email-already-in-use': return 'Bu oyuncu adı zaten alınmış.';
+    case 'auth/email-already-in-use': return 'Bu oyuncu adı zaten alınmış. Giriş Yap sekmesini kullan.';
     case 'auth/invalid-credential':
     case 'auth/wrong-password':
     case 'auth/user-not-found': return 'Oyuncu adı veya şifre yanlış.';
     case 'auth/weak-password': return 'Şifre en az 6 karakter olmalı.';
     case 'auth/too-many-requests': return 'Çok fazla deneme yaptın, biraz bekleyip tekrar dene.';
+    case 'auth/operation-not-allowed': return 'E-posta/Şifre girişi Firebase\'de açık değil.';
     default: return 'Hata: ' + e.message;
   }
 }
@@ -125,10 +129,13 @@ auth.onAuthStateChanged(user => {
     $('loggedBox').style.display = 'block';
     $('title').textContent = 'Hoş geldin!';
     $('welcome').textContent = `Giriş yapıldı: ${user.displayName || ''}`;
+    $('who').classList.add('on');
+    $('whoName').textContent = user.displayName || 'Oyuncu';
   } else {
     $('authBox').style.display = 'block';
     $('loggedBox').style.display = 'none';
-    setMode(mode);
+    $('who').classList.remove('on');
+    setMode('login');
   }
 });
 </script>
