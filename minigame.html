@@ -9,12 +9,34 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+  .scene{position:relative;border:3px solid var(--s);border-radius:16px;overflow:hidden;
+    background:linear-gradient(180deg,#bfe9ff 0%,#e9f8ff 38%,#8fd66b 38%,#6cb850 52%,#8b5a2b 52%,#6b4220 100%);
+    padding:24px 16px 20px}
+  .board{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;max-width:560px;margin:0 auto}
+  .block{aspect-ratio:1;border-radius:6px;border:2px solid #4a4a4a;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;font-size:1.4rem;user-select:none;
+    background:repeating-linear-gradient(45deg,#8e8e8e 0 6px,#7a7a7a 6px 12px);
+    box-shadow:inset 0 -3px 0 rgba(0,0,0,.25);transition:transform .1s}
+  .block:hover:not(.open){transform:scale(1.05);filter:brightness(1.1)}
+  .block.dug{cursor:default;background:#5a3d28;box-shadow:inset 0 3px 6px rgba(0,0,0,.4)}
+  .block.diamond{cursor:default;background:#bff4ff;border-color:#2aa7c9;animation:pop .3s}
+  .block.reveal{cursor:default;opacity:.55;border-style:dashed;border-color:#2aa7c9;background:#d8f7ff}
+  .block.open{cursor:default}
+  .block.locked{cursor:not-allowed}
+  @keyframes pop{from{transform:scale(.4)}to{transform:scale(1)}}
+  .bar{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;margin:16px 0;font-weight:700;font-size:1.05rem}
+  .bar span.v{color:var(--p)}
+</style>
 </head>
 <body>
 
 <header>
   <div class="nav">
-    <a class="logo" href="index.html"><img src="logoflame.png" alt="">FLAME SMP</a>
+    <div style="display:flex;align-items:center;gap:12px">
+      <a class="logo" href="index.html"><img src="images/teklifsimge1.png" alt="">FLAME SMP</a>
+      <span class="who" id="who"><span class="dot"></span><span id="whoName"></span></span>
+    </div>
     <div class="links">
       <a href="index.html">Ana Sayfa</a>
       <a class="active" href="minigame.html">Minigame</a>
@@ -26,14 +48,22 @@
 
 <section class="container">
   <h1 class="title">Minigame</h1>
-  <p class="sub">Her turda 10 ateş topu gelir. Her isabet 10 puan! Günde 5 hakkın var.</p>
+  <p class="sub">Günde 3 hak. Her turda 5 kazma hakkın var. 40 bloğun içinde 3 elmas gizli, her elmas 25 puan!</p>
 
   <div class="card">
-    <div class="stats">
-      Kalan Hak: <span id="plays">-/5</span> &nbsp;|&nbsp; İsabet: <span id="hits">0</span>/10 &nbsp;|&nbsp; Kazanılan Puan: <span id="points">0</span>
+    <div class="bar">
+      <span>Kalan Hak: <span class="v" id="plays">-/3</span></span>
+      <span>Kazma: <span class="v" id="digs">5/5</span></span>
+      <span>Elmas: <span class="v" id="found">0/3</span></span>
+      <span>Kazanılan Puan: <span class="v" id="points">0</span></span>
     </div>
-    <div class="game-box" id="box">
-      <button class="btn" id="startBtn" disabled style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)">Başla</button>
+
+    <div class="scene">
+      <div class="board" id="board"></div>
+    </div>
+
+    <div style="text-align:center;margin-top:16px">
+      <button class="btn" id="startBtn" disabled>Başla</button>
     </div>
     <p class="msg" id="msg">Oynamak için giriş yapmalısın.</p>
   </div>
@@ -41,106 +71,116 @@
 
 <script src="firebase-config.js"></script>
 <script>
-const DAILY_LIMIT = 5;
-const FIREBALLS = 10;
-const POINTS_PER_HIT = 10;
-const FB_LIFE = 1200;
-const SPAWN_GAP = 900;
+const DAILY_LIMIT = 3;
+const DIG_LIMIT = 5;
+const COLS = 8, ROWS = 5;
+const BLOCKS = COLS * ROWS;      // 40
+const DIAMONDS = 3;
+const POINTS_PER_DIAMOND = 25;
 
-const box = document.getElementById('box');
-const startBtn = document.getElementById('startBtn');
-const playsEl = document.getElementById('plays');
-const hitsEl = document.getElementById('hits');
-const pointsEl = document.getElementById('points');
-const msg = document.getElementById('msg');
+const $ = id => document.getElementById(id);
+const boardEl = $('board'), startBtn = $('startBtn'), msg = $('msg');
+const playsEl = $('plays'), digsEl = $('digs'), foundEl = $('found'), pointsEl = $('points');
 
 let uid = null;
-let dailyDay = 0, dailyCount = 0;   // Firestore'dan gelen son durum
-let running = false, spawned = 0, resolved = 0, hits = 0;
+let dailyDay = 0, dailyCount = 0;
+let running = false, digs = 0, found = 0;
+let diamonds = new Set();
+
+// Tahta: 40 blok, bir kez oluşturulur
+for (let i = 0; i < BLOCKS; i++) {
+  const b = document.createElement('div');
+  b.className = 'block';
+  b.dataset.i = i;
+  boardEl.appendChild(b);
+}
 
 function playsLeft() {
   const used = dailyDay === todayKey() ? dailyCount : 0;
   return DAILY_LIMIT - used;
 }
 
-function refreshPlays() {
+function update() {
   playsEl.textContent = `${playsLeft()}/${DAILY_LIMIT}`;
-  startBtn.disabled = !uid || running || playsLeft() <= 0;
-  if (uid && playsLeft() <= 0 && !running) {
+  digsEl.textContent = `${DIG_LIMIT - digs}/${DIG_LIMIT}`;
+  foundEl.textContent = `${found}/${DIAMONDS}`;
+  pointsEl.textContent = found * POINTS_PER_DIAMOND;
+  refreshButton();
+}
+
+function refreshButton() {
+  if (running) { startBtn.style.display = 'none'; return; }
+  startBtn.style.display = 'inline-block';
+  if (!uid) { startBtn.disabled = true; startBtn.textContent = 'Başla'; return; }
+  if (playsLeft() <= 0) {
+    startBtn.disabled = true;
     startBtn.textContent = 'Hak Bitti';
-    msg.textContent = 'Bugünlük 5 hakkın bitti, yarın tekrar gel!';
-  } else if (uid && !running) {
-    startBtn.textContent = 'Başla';
+    msg.textContent = 'Bugünlük 3 hakkın bitti, yarın tekrar gel!';
+  } else {
+    startBtn.disabled = false;
+    startBtn.textContent = dailyDay === 0 && dailyCount === 0 ? 'Başla' : 'Tekrar Oyna';
   }
 }
 
-auth.onAuthStateChanged(async user => {
-  if (!user) {
-    uid = null;
-    msg.textContent = 'Oynamak için giriş yapmalısın.';
-    refreshPlays();
-    return;
+function resetBoard() {
+  boardEl.querySelectorAll('.block').forEach(b => {
+    b.className = 'block';
+    b.textContent = '';
+  });
+}
+
+function pickDiamonds() {
+  const idx = [...Array(BLOCKS).keys()];
+  for (let i = idx.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [idx[i], idx[j]] = [idx[j], idx[i]];
   }
-  uid = user.uid;
-  const snap = await db.collection('users').doc(uid).get();
-  const d = snap.data() || {};
-  dailyDay = d.dailyDay || 0;
-  dailyCount = d.dailyCount || 0;
-  msg.textContent = '';
-  refreshPlays();
-});
+  return new Set(idx.slice(0, DIAMONDS));
+}
 
 function startGame() {
   if (!uid || running || playsLeft() <= 0) return;
   running = true;
-  spawned = 0; resolved = 0; hits = 0;
-  hitsEl.textContent = 0; pointsEl.textContent = 0;
-  msg.textContent = '';
-  startBtn.style.display = 'none';
-  box.querySelectorAll('.target').forEach(t => t.remove());
-  spawnLoop();
+  digs = 0; found = 0;
+  diamonds = pickDiamonds();
+  resetBoard();
+  msg.textContent = 'Kazmaya başla! 5 kazma hakkın var.';
+  update();
 }
 
-function spawnLoop() {
-  if (spawned >= FIREBALLS) return;
-  spawned++;
-  spawnFireball();
-  setTimeout(spawnLoop, SPAWN_GAP);
-}
+boardEl.addEventListener('click', e => {
+  const b = e.target.closest('.block');
+  if (!b || !running || b.classList.contains('open')) return;
 
-function spawnFireball() {
-  const t = document.createElement('button');
-  t.className = 'target';
-  const img = document.createElement('img');
-  img.src = 'fireball.png';
-  img.alt = '';
-  t.appendChild(img);
+  const i = Number(b.dataset.i);
+  b.classList.add('open');
+  digs++;
 
-  t.style.left = Math.random() * (box.clientWidth - 70) + 'px';
-  t.style.top = Math.random() * (box.clientHeight - 70) + 'px';
+  if (diamonds.has(i)) {
+    found++;
+    b.classList.add('diamond');
+    b.textContent = '💎';
+  } else {
+    b.classList.add('dug');
+  }
 
-  let done = false;
-  const resolve = (hit) => {
-    if (done) return;
-    done = true;
-    if (hit) {
-      hits++;
-      hitsEl.textContent = hits;
-      pointsEl.textContent = hits * POINTS_PER_HIT;
-    }
-    t.remove();
-    resolved++;
-    if (resolved === FIREBALLS) finish();
-  };
-
-  t.onclick = () => resolve(true);
-  box.appendChild(t);
-  setTimeout(() => resolve(false), FB_LIFE);
-}
+  update();
+  if (found === DIAMONDS || digs === DIG_LIMIT) finish();
+});
 
 async function finish() {
   running = false;
-  const earned = hits * POINTS_PER_HIT;
+  const earned = found * POINTS_PER_DIAMOND;
+
+  // Açılmamış elmasları göster
+  diamonds.forEach(i => {
+    const b = boardEl.children[i];
+    if (!b.classList.contains('open')) {
+      b.classList.add('reveal', 'open');
+      b.textContent = '💎';
+    }
+  });
+
   const t = todayKey();
   const newCount = dailyDay === t ? dailyCount + 1 : 1;
 
@@ -152,17 +192,36 @@ async function finish() {
     });
     dailyDay = t;
     dailyCount = newCount;
-    msg.textContent = `Tur bitti! ${hits} isabet, ${earned} puan kazandın.`;
+    msg.textContent = `Tur bitti! ${found} elmas buldun, ${earned} puan kazandın.`;
   } catch (e) {
     msg.textContent = 'Puan kaydedilemedi: ' + e.message;
   }
-
-  startBtn.style.display = 'inline-block';
-  refreshPlays();
-  if (playsLeft() > 0) startBtn.textContent = 'Tekrar Oyna';
+  update();
 }
 
 startBtn.onclick = startGame;
+
+auth.onAuthStateChanged(async user => {
+  if (!user) {
+    uid = null;
+    $('who').classList.remove('on');
+    msg.textContent = 'Oynamak için giriş yapmalısın.';
+    update();
+    return;
+  }
+  uid = user.uid;
+  $('who').classList.add('on');
+  $('whoName').textContent = user.displayName || 'Oyuncu';
+
+  const snap = await db.collection('users').doc(uid).get();
+  const d = snap.data() || {};
+  dailyDay = d.dailyDay || 0;
+  dailyCount = d.dailyCount || 0;
+  msg.textContent = '';
+  update();
+});
+
+update();
 </script>
 
 </body>
