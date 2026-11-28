@@ -52,11 +52,10 @@ let myPoints = 0;
 let unsubUser = null, unsubOwned = null;
 
 const info = document.getElementById('info');
-
 function renderProducts() {
   document.getElementById('products').innerHTML = PRODUCTS.map(p => `
     <div class="card product">
-      <div class="preview"><img src="${p.img}" alt="${p.name} içerik"></div>
+      ${p.img ? `<div class="preview"><img src="${p.img}" alt="${p.name} içerik"></div>` : ''}
       <img class="icon" src="${p.icon}" alt="${p.name}">
       <h3>${p.name}</h3>
       <div class="price">${p.price} Puan</div>
