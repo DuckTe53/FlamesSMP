@@ -91,7 +91,7 @@ auth.onAuthStateChanged(user => {
     document.getElementById('pts').textContent = 0;
     info.textContent = 'Satın alma için giriş yapmalısın.';
   } else {
-    info.textContent = 'Teslim için oyun içi adını bana bildir, sonra teslim edilecek.';
+    info.textContent = 'Oyun İçi teslim edilmesi 0-5 gün sürebilir.';
     unsubUser = db.collection('users').doc(user.uid).onSnapshot(snap => {
       myPoints = (snap.data() || {}).points || 0;
       document.getElementById('pts').textContent = myPoints;
