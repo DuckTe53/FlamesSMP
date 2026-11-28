@@ -33,16 +33,16 @@
   </div>
 
   <h2>Market</h2>
-  <p class="sub" id="info">Teklifin üstüne gelince içeriğini görebilirsin.</p>
+  <p class="sub" id="info">Teklifin üstüne gelince içeriğini veya üretim dizilimini görebilirsin.</p>
   <div class="grid" id="products"></div>
 </section>
 
 <script src="firebase-config.js"></script>
 <script>
 const PRODUCTS = [
-  { id: 'extra-kalp',   name: 'Extra Kalp',  price: 150,  icon: 'teklifsimge1.png', img: null },
+  { id: 'extra-kalp',   name: 'Extra Kalp',  price: 150,  icon: 'teklifsimge1.png', img: 'icerik1.png' },
   { id: 'revive',       name: 'Revive',      price: 500,  icon: 'teklifsimge2.png', img: null },
-  { id: 'revive-book',  name: 'Revive Book', price: 1200, icon: 'teklifsimge5.png', img: null },
+  { id: 'revive-book',  name: 'Revive Book', price: 1200, icon: 'teklifsimge5.png', img: 'icerik2.png },
   { id: 'starter-kit',  name: 'Starter KİT', price: 1500, icon: 'teklifsimge3.png', img: 'icerik3.PNG' },
   { id: 'p4-neth-kit',  name: 'P4 Neth KİT', price: 2800, icon: 'teklifsimge4.png', img: 'icerik4.PNG' }
 ];
@@ -90,11 +90,6 @@ auth.onAuthStateChanged(user => {
     myPoints = 0;
     document.getElementById('pts').textContent = 0;
     info.textContent = 'Satın alma için giriş yapmalısın.';
-  } else {
-    info.textContent = 'Oyun İçi teslim edilmesi 0-5 gün sürebilir.';
-    unsubUser = db.collection('users').doc(user.uid).onSnapshot(snap => {
-      myPoints = (snap.data() || {}).points || 0;
-      document.getElementById('pts').textContent = myPoints;
     });
   }
 
