@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Market - Flame SMP</title>
-<link rel="icon" type="image/png" href="images/favicon.png">
+<link rel="icon" type="image/png" href="logoflame.png">
 <link rel="stylesheet" href="style.css">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -42,7 +42,7 @@
 const PRODUCTS = [
   { id: 'extra-kalp',   name: 'Extra Kalp',  price: 150,  icon: 'teklifsimge1.png', img: 'icerik1.png' },
   { id: 'revive',       name: 'Revive',      price: 500,  icon: 'teklifsimge2.png', img: null },
-  { id: 'revive-book',  name: 'Revive Book', price: 1200, icon: 'teklifsimge5.png', img: 'icerik2.png },
+  { id: 'revive-book',  name: 'Revive Book', price: 1200, icon: 'teklifsimge5.png', img: 'icerik2.png' },
   { id: 'starter-kit',  name: 'Starter KİT', price: 1500, icon: 'teklifsimge3.png', img: 'icerik3.PNG' },
   { id: 'p4-neth-kit',  name: 'P4 Neth KİT', price: 2800, icon: 'teklifsimge4.png', img: 'icerik4.PNG' }
 ];
@@ -89,11 +89,13 @@ auth.onAuthStateChanged(user => {
   if (!user) {
     myPoints = 0;
     document.getElementById('pts').textContent = 0;
-    info.textContent = 'Satın alma için giriş yapmalısın.';
+  } else {
+    unsubUser = db.collection('users').doc(user.uid).onSnapshot(snap => {
+      myPoints = (snap.data() || {}).points || 0;
+      document.getElementById('pts').textContent = myPoints;
     });
   }
 
-  // Alınanlar herkese açık: giriş yapan herkes tüm satın alımları görür
   if (user) {
     unsubOwned = db.collection('purchases').orderBy('createdAt', 'desc')
       .onSnapshot(snap => renderOwned(snap.docs.map(d => d.data())), err => {
