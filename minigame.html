@@ -93,11 +93,6 @@ for (let i = 0; i < BLOCKS; i++) {
   boardEl.appendChild(b);
 }
 
-const todayKey = () => {
-  const d = new Date();
-  return d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
-};
-
 function playsLeft() {
   const used = dailyDay === todayKey() ? dailyCount : 0;
   return DAILY_LIMIT - used;
