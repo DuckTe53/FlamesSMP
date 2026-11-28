@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Minigame - Flame SMP</title>
-<link rel="icon" type="image/png" href="images/favicon.png">
+<link rel="icon" type="image/png" href="logoflame.png">
 <link rel="stylesheet" href="style.css">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -13,7 +13,7 @@
   .scene{position:relative;border:3px solid var(--s);border-radius:16px;overflow:hidden;
     background:linear-gradient(180deg,#bfe9ff 0%,#e9f8ff 38%,#8fd66b 38%,#6cb850 52%,#8b5a2b 52%,#6b4220 100%);
     padding:24px 16px 20px}
-  .board{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;max-width:560px;margin:0 auto}
+  .board{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;max-width:480px;margin:0 auto}
   .block{aspect-ratio:1;border-radius:6px;border:2px solid #4a4a4a;cursor:pointer;
     display:flex;align-items:center;justify-content:center;font-size:1.4rem;user-select:none;
     background:repeating-linear-gradient(45deg,#8e8e8e 0 6px,#7a7a7a 6px 12px);
@@ -23,7 +23,6 @@
   .block.diamond{cursor:default;background:#bff4ff;border-color:#2aa7c9;animation:pop .3s}
   .block.reveal{cursor:default;opacity:.55;border-style:dashed;border-color:#2aa7c9;background:#d8f7ff}
   .block.open{cursor:default}
-  .block.locked{cursor:not-allowed}
   @keyframes pop{from{transform:scale(.4)}to{transform:scale(1)}}
   .bar{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;margin:16px 0;font-weight:700;font-size:1.05rem}
   .bar span.v{color:var(--p)}
@@ -34,7 +33,7 @@
 <header>
   <div class="nav">
     <div style="display:flex;align-items:center;gap:12px">
-      <a class="logo" href="index.html"><img src="images/teklifsimge1.png" alt="">FLAME SMP</a>
+      <a class="logo" href="index.html"><img src="logoflame.png" alt="">FLAME SMP</a>
       <span class="who" id="who"><span class="dot"></span><span id="whoName"></span></span>
     </div>
     <div class="links">
@@ -48,7 +47,7 @@
 
 <section class="container">
   <h1 class="title">Minigame</h1>
-  <p class="sub">Günde 3 hak. Her turda 5 kazma hakkın var. 40 bloğun içinde 3 elmas gizli, her elmas 25 puan!</p>
+  <p class="sub">Günde 3 hak. Her turda 5 kazma hakkın var. 30 bloğun içinde 3 elmas gizli, her elmas 25 puan!</p>
 
   <div class="card">
     <div class="bar">
@@ -73,8 +72,8 @@
 <script>
 const DAILY_LIMIT = 3;
 const DIG_LIMIT = 5;
-const COLS = 8, ROWS = 5;
-const BLOCKS = COLS * ROWS;      // 40
+const COLS = 6, ROWS = 5;
+const BLOCKS = COLS * ROWS;      // 30
 const DIAMONDS = 3;
 const POINTS_PER_DIAMOND = 25;
 
@@ -87,13 +86,17 @@ let dailyDay = 0, dailyCount = 0;
 let running = false, digs = 0, found = 0;
 let diamonds = new Set();
 
-// Tahta: 40 blok, bir kez oluşturulur
 for (let i = 0; i < BLOCKS; i++) {
   const b = document.createElement('div');
   b.className = 'block';
   b.dataset.i = i;
   boardEl.appendChild(b);
 }
+
+const todayKey = () => {
+  const d = new Date();
+  return d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
+};
 
 function playsLeft() {
   const used = dailyDay === todayKey() ? dailyCount : 0;
@@ -118,7 +121,7 @@ function refreshButton() {
     msg.textContent = 'Bugünlük 3 hakkın bitti, yarın tekrar gel!';
   } else {
     startBtn.disabled = false;
-    startBtn.textContent = dailyDay === 0 && dailyCount === 0 ? 'Başla' : 'Tekrar Oyna';
+    startBtn.textContent = dailyCount === 0 ? 'Başla' : 'Tekrar Oyna';
   }
 }
 
@@ -172,7 +175,6 @@ async function finish() {
   running = false;
   const earned = found * POINTS_PER_DIAMOND;
 
-  // Açılmamış elmasları göster
   diamonds.forEach(i => {
     const b = boardEl.children[i];
     if (!b.classList.contains('open')) {
